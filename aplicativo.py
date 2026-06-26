@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. ESTILIZAÇÃO CUSTOMIZADA (Fundo Geral Claro + Menu igual ao rascunho da imagem image_e575a3.png)
+# 2. ESTILIZAÇÃO CUSTOMIZADA (Correção de sobreposição e alinhamento ao topo)
 st.markdown("""
     <style>
     /* Fundo Principal em Branco */
@@ -18,7 +18,7 @@ st.markdown("""
         color: #222222;
     }
     
-    /* --- CONFIGURAÇÃO DO MENU LATERAL (Conforme image_e575a3.png) --- */
+    /* --- CONFIGURAÇÃO DO MENU LATERAL --- */
     
     /* Fundo Preto/Escuro da Barra Lateral */
     [data-testid="stSidebar"] {
@@ -26,26 +26,38 @@ st.markdown("""
         border-right: none;
     }
     
+    /* REMOVE ELEMENTOS INVISÍVEIS DO STREAMLIT QUE CAUSAM SOBREPOSIÇÃO */
+    [data-testid="stSidebar"] .stElementContainer:has(label[data-testid="stWidgetLabel"]-visible) {
+        display: none !important;
+    }
+    /* Esconde elementos vazios gerados pelo radio oculto */
+    div[data-testid="stRadio"] > label {
+        display: none !important;
+    }
+    
+    /* Zera os paddings nativos do container interno para o menu colar no topo */
+    [data-testid="stSidebarContent"] {
+        padding-top: 0rem !important;
+    }
+    [data-testid="stSidebarUserContent"] {
+        padding-top: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
+    }
+    
     /* Força o texto das opções nativas a ficarem brancos */
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
         color: #ffffff !important;
     }
     
-    /* Remove o espaçamento padrão do Streamlit no topo do menu */
-    [data-testid="stSidebar"] .st-emotion-cache-1c7ee8x, 
-    [data-testid="stSidebar"] .st-emotion-cache-6qobix {
-        padding-top: 0rem !important;
-    }
-    
-    /* Bloco do Topo Azul */
+    /* Bloco do Topo Azul (Sem margem negativa quebrada, colado perfeitamente) */
     .menu-header-azul {
         background-color: #3b42f2;
-        padding: 35px 20px;
+        padding: 40px 20px;
         text-align: center;
-        margin-top: -4rem; /* Fixa no topo absoluto */
-        margin-left: -1.5rem;
-        margin-right: -1.5rem;
+        margin-top: 0rem !important;
         margin-bottom: 25px;
+        width: 100%;
     }
     
     /* Cruz Médica Branca */
@@ -75,10 +87,16 @@ st.markdown("""
         font-weight: bold;
         text-transform: uppercase;
         letter-spacing: 1px;
-        margin: 20px 0px 15px 5px;
+        margin: 20px 15px 15px 15px;
         font-family: sans-serif;
         border-bottom: 1px solid #2a2a30;
         padding-bottom: 8px;
+    }
+    
+    /* Ajuste de espaçamento para as opções do Radio ficarem bonitas na barra */
+    [data-testid="stSidebarUserContent"] div[data-testid="stRadio"] {
+        padding-left: 15px;
+        padding-right: 15px;
     }
     
     /* ----------------------------------------------- */
@@ -110,23 +128,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# 3. MENU LATERAL PERSONALIZADO (Estrutura Fiel ao Desenho)
-# Topo Azul com a Cruz Branca
+# 3. MENU LATERAL PERSONALIZADO (Ordem limpa e correta)
+# 1º O Topo Azul colado acima de tudo
 st.sidebar.markdown("""
     <div class='menu-header-azul'>
         <div class='logo-cross'></div>
     </div>
 """, unsafe_allow_html=True)
 
-# Apenas o name "MENU" em branco
+# 2º O Título do Menu
 st.sidebar.markdown("<div class='menu-titulo'>MENU</div>",
                     unsafe_allow_html=True)
 
-# Opções selecionáveis com os ícones adequados (Gráfico e IA)
+# 3º As opções selecionáveis de forma limpa
 opcao = st.sidebar.radio(
     label="Menu de Navegação",
     options=["📊 Dashboard", "🤖 Predição"],
-    label_visibility="collapsed"  # Esconde o rótulo padrão
+    label_visibility="collapsed"
 )
 
 
