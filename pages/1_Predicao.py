@@ -129,10 +129,13 @@ with st.form("form_predicao"):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # BOTÃO DE SUBMISSÃO
+   # BOTÃO DE SUBMISSÃO (Última linha dentro do bloco 'with st.form')
     botao_prever = st.form_submit_button("Prever Resultado")
 
-# 5. PROCESSAMENTO DA PREDIÇÃO AO CLICAR NO BOTÃO
+# 5. CONTAINER PARA EXIBIÇÃO DOS RESULTADOS (FORA DO FORM)
+espaco_resultado = st.container()
+
+# 6. PROCESSAMENTO DA PREDIÇÃO AO CLICAR NO BOTÃO
 if botao_prever:
     # Organiza os dados na ordem exata que o KNN espera (30 colunas)
     dados_entrada = np.array([[
@@ -144,12 +147,15 @@ if botao_prever:
     # Realiza o cálculo usando o arquivo PKL
     predicao = model.predict(dados_entrada)
 
-    st.markdown("---")
-    # Exibe o resultado de forma elegante
-    if predicao[0] == 1 or predicao[0] == 'M':
-        st.error("🚨 **Resultado da Predição: Maligno (M)**")
-        st.warning("A análise matemática identificou padrões compatíveis com tecidos tumorais malignos. Encaminhar para revisão médica detalhada.")
-    else:
-        st.success("✅ **Resultado da Predição: Benigno (B)**")
-        st.info(
-            "A análise matemática identificou padrões associados a estruturas celulares benignas.")
+    # Injeta as mensagens diretamente no container criado fora do form
+    with espaco_resultado:
+        st.markdown("---")
+        # Exibe o resultado de forma elegante
+        if predicao[0] == 1 or predicao[0] == 'M':
+            st.error("🚨 **Resultado da Predição: Maligno (M)**")
+            st.warning(
+                "A análise matemática identificou padrões compatíveis com tecidos tumorais malignos. Encaminhar para revisão médica detalhada.")
+        else:
+            st.success("✅ **Resultado da Predição: Benigno (B)**")
+            st.info(
+                "A análise matemática identificou padrões associados a estruturas celulares benignas.")
