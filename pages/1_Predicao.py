@@ -1,127 +1,155 @@
-from flask import Flask, request, jsonify, render_template_string
+import streamlit as st
+import pandas as pd
 import pickle
 import numpy as np
-import os
 
-app = Flask(__name__)
+# 1. CONFIGURAÇÃO DA PÁGINA
+st.set_page_config(page_title="Predição - Fit Health", layout="wide")
 
-# ==========================================
-# CARREGAR MODELO DIRETAMENTE
-# ==========================================
-with open('modelo_knn.pkl', 'rb') as f:
-    modelo = pickle.load(f)
+# 2. CARREGAR O MODELO DE IA (KNN)
 
-# ==========================================
-# DICIONÁRIO DAS 30 VARIÁVEIS
-# ==========================================
-DICIONARIO_VARIAVEIS = {
-    "radius_mean": "Raio (Média)", "texture_mean": "Textura (Média)", "perimeter_mean": "Perímetro (Média)", "area_mean": "Área (Média)", "smoothness_mean": "Suavidade (Média)",
-    "compactness_mean": "Compacidade (Média)", "concavity_mean": "Concavidade (Média)", "concave points_mean": "Pontos Côncavos (Média)", "symmetry_mean": "Simetria (Média)", "fractal_dimension_mean": "Dimensão Fractal (Média)",
-    "radius_se": "Raio (Erro Padrão)", "texture_se": "Textura (Erro Padrão)", "perimeter_se": "Perímetro (Erro Padrão)", "area_se": "Área (Erro Padrão)", "smoothness_se": "Suavidade (Erro Padrão)",
-    "compactness_se": "Compacidade (Erro Padrão)", "concavity_se": "Concavidade (Erro Padrão)", "concave points_se": "Pontos Côncavos (Erro Padrão)", "symmetry_se": "Simetria (Erro Padrão)", "fractal_dimension_se": "Dimensão Fractal (Erro Padrão)",
-    "radius_worst": "Raio (Pior Cenário)", "texture_worst": "Textura (Pior Cenário)", "perimeter_worst": "Perímetro (Pior Cenário)", "area_worst": "Área (Pior Cenário)", "smoothness_worst": "Suavidade (Pior Cenário)",
-    "compactness_worst": "Compacidade (Pior Cenário)", "concavity_worst": "Concavidade (Pior Cenário)", "concave points_worst": "Pontos Côncavos (Pior Cenário)", "symmetry_worst": "Simetria (Pior Cenário)", "fractal_dimension_worst": "Dimensão Fractal (Pior Cenário)"
-}
 
-COLUNAS = list(DICIONARIO_VARIAVEIS.keys())
+@st.cache_resource
+def carregar_modelo():
+    # Carrega o arquivo pkl que está na raiz do seu projeto
+    with open('modelo_knn.pkl', 'rb') as f:
+        modelo = pickle.load(f)
+    return modelo
 
-# ==========================================
-# TEMPLATE HTML
-# ==========================================
-HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Predição de Câncer de Mama</title>
+
+try:
+    model = carregar_modelo()
+except Exception as e:
+    st.error(f"Erro ao carregar o arquivo modelo_knn.pkl: {e}")
+    st.stop()
+
+# 3. ESTILIZAÇÃO DA PALETA ESCURA E BOTÃO ROSA
+st.markdown("""
     <style>
-        body{ font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; }
-        .box{ width:950px; margin:auto; background:white; padding:30px; border-radius:10px; box-shadow:0px 0px 10px rgba(0,0,0,0.1); }
-        .grid-container{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-        .input-group{ text-align:left; }
-        label{ font-weight:bold; font-size:14px; }
-        input{ width:100%; padding:10px; border-radius:5px; border:1px solid #ccc; box-sizing: border-box; }
-        .secao-titulo{ grid-column:span 3; color:#e91e63; font-weight:bold; margin-top:15px; font-size:20px; }
-        button{ padding:12px 40px; background:#e91e63; color:white; border:none; margin-top:25px; cursor:pointer; border-radius:5px; font-size:16px; }
-        button:hover{ background:#c2185b; }
-        #resultado{ margin-top:25px; font-size:1.5em; font-weight:bold; }
-        .maligno{ color:red; } .benigno{ color:green; }
-    </style>
-</head>
-<body>
-<div class="box">
-    <h2>Predição de Câncer de Mama</h2>
-    <p>Preencha os 30 parâmetros abaixo</p>
-    <div class="grid-container">
-        <div class="secao-titulo">Valores Médios</div>
-        {% for chave, rotulo in variaveis.items() if 'mean' in chave %}
-        <div class="input-group"><label>{{ rotulo }}</label><input id="{{ chave }}" type="number" step="any"></div>
-        {% endfor %}
-        <div class="secao-titulo">Erro Padrão</div>
-        {% for chave, rotulo in variaveis.items() if '_se' in chave %}
-        <div class="input-group"><label>{{ rotulo }}</label><input id="{{ chave }}" type="number" step="any"></div>
-        {% endfor %}
-        <div class="secao-titulo">Piores Valores</div>
-        {% for chave, rotulo in variaveis.items() if 'worst' in chave %}
-        <div class="input-group"><label>{{ rotulo }}</label><input id="{{ chave }}" type="number" step="any"></div>
-        {% endfor %}
-    </div>
-    <button onclick="prever()">Prever Resultado</button>
-    <h3 id="resultado"></h3>
-</div>
-<script>
-const campos = {{ colunas|tojson }};
-function prever(){
-    let dados = campos.map(id => parseFloat(document.getElementById(id).value));
-    if(dados.some(isNaN)){
-        document.getElementById("resultado").innerText = "Preencha todos os campos.";
-        return;
+    [data-testid="stSidebar"] { background-color: #12121e; }
+    h2, h3 { color: #e91e63 !important; font-weight: bold !important; }
+    div.stButton > button:first-child {
+        background-color: #e91e63 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-radius: 6px !important;
+        border: none !important;
+        width: 100% !important;
+        padding: 10px !important;
+        box-shadow: 0 4px 15px rgba(233,30,99,0.4);
     }
-    fetch('/predict', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body:JSON.stringify({ dados:dados })
-    })
-    .then(r=>r.json())
-    .then(d=>{
-        let div = document.getElementById("resultado");
-        if(d.resultado == 1){
-            div.innerText = "Resultado: Maligno";
-            div.className = "maligno";
-        } else {
-            div.innerText = "Resultado: Benigno";
-            div.className = "benigno";
-        }
-    })
-    .catch(err=>{
-        document.getElementById("resultado").innerText = "Erro ao processar previsão.";
-    });
-}
-</script>
-</body>
-</html>
-"""
+    </style>
+""", unsafe_allow_html=True)
 
-@app.route('/')
-def home():
-    return render_template_string(HTML, variaveis=DICIONARIO_VARIAVEIS, colunas=COLUNAS)
+# TÍTULOS
+st.markdown("<h2 style='text-align: center;'>Predição de Câncer de Mama</h2>",
+            unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #a0a0b8;'>Preencha os 30 parâmetros clínicos abaixo para realizar o diagnóstico automatizado</p>", unsafe_allow_html=True)
+st.markdown("---")
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        dados_lista = request.json['dados']
-        
-        # Convertemos para array do numpy e remodelamos para o formato que o KNN espera (1 linha, 30 colunas)
-        dados_np = np.array(dados_lista).reshape(1, -1)
-        
-        # Predição direta usando a matriz numérica
-        pred = modelo.predict(dados_np)[0]
-        
-        return jsonify({'resultado': int(pred)})
-    except Exception as e:
-        return jsonify({'erro': str(e)})
+# 4. CRIANDO O FORMULÁRIO COM OS 30 PARÂMETROS ORGANIZADOS
+with st.form("form_predicao"):
 
-if __name__ == '__main__':
-    # O Render exige que o app use a porta definida por eles na variável de ambiente PORT
-    porta = int(os.environ.get("PORT", 8080))
-    app.run(debug=True, host='0.0.0.0', port=porta)
+    # --- BLOCO 1: VALORES MÉDIOS ---
+    st.markdown("<h3>Valores Médios</h3>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        v1 = st.number_input("Raio (Média)", value=14.0, format="%.4f")
+        v4 = st.number_input("Área (Média)", value=650.0, format="%.2f")
+        v7 = st.number_input("Concavidade (Média)", value=0.08, format="%.4f")
+    with col2:
+        v2 = st.number_input("Textura (Média)", value=19.0, format="%.4f")
+        v5 = st.number_input("Suavidade (Média)", value=0.09, format="%.4f")
+        v8 = st.number_input("Pontos Côncavos (Média)",
+                             value=0.04, format="%.4f")
+    with col3:
+        v3 = st.number_input("Perímetro (Média)", value=92.0, format="%.2f")
+        v6 = st.number_input("Compacidade (Média)", value=0.10, format="%.4f")
+        v9 = st.number_input("Simetria (Média)", value=0.18, format="%.4f")
+
+    v10 = st.number_input("Dimensão Fractal (Média)",
+                          value=0.06, format="%.4f")
+
+    st.markdown("---")
+
+    # --- BLOCO 2: ERRO PADRÃO ---
+    st.markdown("<h3>Erro Padrão</h3>", unsafe_allow_html=True)
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        v11 = st.number_input("Raio (Erro Padrão)", value=0.40, format="%.4f")
+        v14 = st.number_input("Área (Erro Padrão)", value=40.0, format="%.2f")
+        v17 = st.number_input("Concavidade (Erro Padrão)",
+                              value=0.03, format="%.4f")
+    with col5:
+        v12 = st.number_input("Textura (Erro Padrão)",
+                              value=1.21, format="%.4f")
+        v15 = st.number_input("Suavidade (Erro Padrão)",
+                              value=0.006, format="%.5f")
+        v18 = st.number_input(
+            "Pontos Côncavos (Erro Padrão)", value=0.01, format="%.4f")
+    with col3 if 'col6' not in locals() else col6:
+        v13 = st.number_input("Perímetro (Erro Padrão)",
+                              value=2.86, format="%.2f")
+        v16 = st.number_input("Compacidade (Erro Padrão)",
+                              value=0.02, format="%.4f")
+        v19 = st.number_input("Simetria (Erro Padrão)",
+                              value=0.02, format="%.4f")
+
+    v20 = st.number_input("Dimensão Fractal (Erro Padrão)",
+                          value=0.003, format="%.5f")
+
+    st.markdown("---")
+
+    # --- BLOCO 3: PIORES VALORES ---
+    st.markdown("<h3>Piores Valores</h3>", unsafe_allow_html=True)
+    col7, col8, col9 = st.columns(3)
+    with col7:
+        v21 = st.number_input("Raio (Pior Cenário)", value=16.2, format="%.4f")
+        v24 = st.number_input("Área (Pior Cenário)",
+                              value=880.0, format="%.2f")
+        v27 = st.number_input("Concavidade (Pior Cenário)",
+                              value=0.27, format="%.4f")
+    with col8:
+        v22 = st.number_input("Textura (Pior Cenário)",
+                              value=25.6, format="%.4f")
+        v25 = st.number_input("Suavidade (Pior Cenário)",
+                              value=0.13, format="%.4f")
+        v28 = st.number_input(
+            "Pontos Côncavos (Pior Cenário)", value=0.11, format="%.4f")
+    with col9:
+        v23 = st.number_input("Perímetro (Pior Cenário)",
+                              value=107.0, format="%.2f")
+        v26 = st.number_input("Compacidade (Pior Cenário)",
+                              value=0.25, format="%.4f")
+        v29 = st.number_input("Simetria (Pior Cenário)",
+                              value=0.29, format="%.4f")
+
+    v30 = st.number_input("Dimensão Fractal (Pior Cenário)",
+                          value=0.08, format="%.4f")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # BOTÃO DE SUBMISSÃO
+    botao_prever = st.form_submit_button("Prever Resultado")
+
+# 5. PROCESSAMENTO DA PREDIÇÃO AO CLICAR NO BOTÃO
+if botao_prever:
+    # Organiza os dados na ordem exata que o KNN espera (30 colunas)
+    dados_entrada = np.array([[
+        v1, v2, v3, v4, v5, v6, v7, v8, v9, v10,
+        v11, v12, v13, v14, v15, v16, v17, v18, v19, v20,
+        v21, v22, v23, v24, v25, v26, v27, v28, v29, v30
+    ]])
+
+    # Realiza o cálculo usando o arquivo PKL
+    predicao = model.predict(dados_entrada)
+
+    st.markdown("---")
+    # Exibe o resultado de forma elegante
+    if predicao[0] == 1 or predicao[0] == 'M':
+        st.error("🚨 **Resultado da Predição: Maligno (M)**")
+        st.warning("A análise matemática identificou padrões compatíveis com tecidos tumorais malignos. Encaminhar para revisão médica detalhada.")
+    else:
+        st.success("✅ **Resultado da Predição: Benigno (B)**")
+        st.info(
+            "A análise matemática identificou padrões associados a estruturas celulares benignas.")
