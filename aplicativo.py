@@ -1,127 +1,138 @@
-from flask import Flask, request, jsonify, render_template_string
-import pickle
-import numpy as np
-import os
+import streamlit as st
+import pandas as pd
+import plotly.express as px
 
-app = Flask(__name__)
+# 1. CONFIGURAÇÃO DA PÁGINA (Tema Escuro e Layout Amplo)
+st.set_page_config(
+    page_title="Dashboard Clínico - Câncer de Mama", 
+    layout="wide", 
+    initial_sidebar_state="expanded"
+)
 
-# ==========================================
-# CARREGAR MODELO DIRETAMENTE
-# ==========================================
-with open('modelo_knn.pkl', 'rb') as f:
-    modelo = pickle.load(f)
-
-# ==========================================
-# DICIONÁRIO DAS 30 VARIÁVEIS
-# ==========================================
-DICIONARIO_VARIAVEIS = {
-    "radius_mean": "Raio (Média)", "texture_mean": "Textura (Média)", "perimeter_mean": "Perímetro (Média)", "area_mean": "Área (Média)", "smoothness_mean": "Suavidade (Média)",
-    "compactness_mean": "Compacidade (Média)", "concavity_mean": "Concavidade (Média)", "concave points_mean": "Pontos Côncavos (Média)", "symmetry_mean": "Simetria (Média)", "fractal_dimension_mean": "Dimensão Fractal (Média)",
-    "radius_se": "Raio (Erro Padrão)", "texture_se": "Textura (Erro Padrão)", "perimeter_se": "Perímetro (Erro Padrão)", "area_se": "Área (Erro Padrão)", "smoothness_se": "Suavidade (Erro Padrão)",
-    "compactness_se": "Compacidade (Erro Padrão)", "concavity_se": "Concavidade (Erro Padrão)", "concave points_se": "Pontos Côncavos (Erro Padrão)", "symmetry_se": "Simetria (Erro Padrão)", "fractal_dimension_se": "Dimensão Fractal (Erro Padrão)",
-    "radius_worst": "Raio (Pior Cenário)", "texture_worst": "Textura (Pior Cenário)", "perimeter_worst": "Perímetro (Pior Cenário)", "area_worst": "Área (Pior Cenário)", "smoothness_worst": "Suavidade (Pior Cenário)",
-    "compactness_worst": "Compacidade (Pior Cenário)", "concavity_worst": "Concavidade (Pior Cenário)", "concave points_worst": "Pontos Côncavos (Pior Cenário)", "symmetry_worst": "Simetria (Pior Cenário)", "fractal_dimension_worst": "Dimensão Fractal (Pior Cenário)"
-}
-
-COLUNAS = list(DICIONARIO_VARIAVEIS.keys())
-
-# ==========================================
-# TEMPLATE HTML
-# ==========================================
-HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Predição de Câncer de Mama</title>
+# 2. ESTILIZAÇÃO CUSTOMIZADA (CSS para os Quadrados/Cards e Cores da Paleta)
+st.markdown("""
     <style>
-        body{ font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; }
-        .box{ width:950px; margin:auto; background:white; padding:30px; border-radius:10px; box-shadow:0px 0px 10px rgba(0,0,0,0.1); }
-        .grid-container{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-        .input-group{ text-align:left; }
-        label{ font-weight:bold; font-size:14px; }
-        input{ width:100%; padding:10px; border-radius:5px; border:1px solid #ccc; box-sizing: border-box; }
-        .secao-titulo{ grid-column:span 3; color:#e91e63; font-weight:bold; margin-top:15px; font-size:20px; }
-        button{ padding:12px 40px; background:#e91e63; color:white; border:none; margin-top:25px; cursor:pointer; border-radius:5px; font-size:16px; }
-        button:hover{ background:#c2185b; }
-        #resultado{ margin-top:25px; font-size:1.5em; font-weight:bold; }
-        .maligno{ color:red; } .benigno{ color:green; }
-    </style>
-</head>
-<body>
-<div class="box">
-    <h2>Predição de Câncer de Mama</h2>
-    <p>Preencha os 30 parâmetros abaixo</p>
-    <div class="grid-container">
-        <div class="secao-titulo">Valores Médios</div>
-        {% for chave, rotulo in variaveis.items() if 'mean' in chave %}
-        <div class="input-group"><label>{{ rotulo }}</label><input id="{{ chave }}" type="number" step="any"></div>
-        {% endfor %}
-        <div class="secao-titulo">Erro Padrão</div>
-        {% for chave, rotulo in variaveis.items() if '_se' in chave %}
-        <div class="input-group"><label>{{ rotulo }}</label><input id="{{ chave }}" type="number" step="any"></div>
-        {% endfor %}
-        <div class="secao-titulo">Piores Valores</div>
-        {% for chave, rotulo in variaveis.items() if 'worst' in chave %}
-        <div class="input-group"><label>{{ rotulo }}</label><input id="{{ chave }}" type="number" step="any"></div>
-        {% endfor %}
-    </div>
-    <button onclick="prever()">Prever Resultado</button>
-    <h3 id="resultado"></h3>
-</div>
-<script>
-const campos = {{ colunas|tojson }};
-function prever(){
-    let dados = campos.map(id => parseFloat(document.getElementById(id).value));
-    if(dados.some(isNaN)){
-        document.getElementById("resultado").innerText = "Preencha todos os campos.";
-        return;
+    /* Estilização dos blocos/quadrados superiores */
+    .card-metrica {
+        background-color: #1e1e2f;
+        border: 1px solid #3a3a55;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+        margin-bottom: 15px;
     }
-    fetch('/predict', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body:JSON.stringify({ dados:dados })
-    })
-    .then(r=>r.json())
-    .then(d=>{
-        let div = document.getElementById("resultado");
-        if(d.resultado == 1){
-            div.innerText = "Resultado: Maligno";
-            div.className = "maligno";
-        } else {
-            div.innerText = "Resultado: Benigno";
-            div.className = "benigno";
-        }
-    })
-    .catch(err=>{
-        document.getElementById("resultado").innerText = "Erro ao processar previsão.";
-    });
-}
-</script>
-</body>
-</html>
-"""
+    .card-titulo {
+        font-size: 14px;
+        color: #a0a0b8;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+    .card-valor {
+        font-size: 26px;
+        color: #e91e63;
+        font-weight: 250px;
+    }
+    
+    /* Ajustes no menu lateral para fixar a paleta escura */
+    [data-testid="stSidebar"] {
+        background-color: #12121e;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-@app.route('/')
-def home():
-    return render_template_string(HTML, variaveis=DICIONARIO_VARIAVEIS, colunas=COLUNAS)
+# 3. MENU LATERAL PERSONALIZADO (Navegação Nativa)
+st.sidebar.markdown("<h2 style='color: #e91e63; font-weight: bold;'>Fit Health</h2>", unsafe_allow_html=True)
+st.sidebar.markdown("---")
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        dados_lista = request.json['dados']
-        
-        # Convertemos para array do numpy e remodelamos para o formato que o KNN espera (1 linha, 30 colunas)
-        dados_np = np.array(dados_lista).reshape(1, -1)
-        
-        # Predição direta usando a matriz numérica
-        pred = modelo.predict(dados_np)[0]
-        
-        return jsonify({'resultado': int(pred)})
-    except Exception as e:
-        return jsonify({'erro': str(e)})
+# 4. FUNÇÃO PARA CARREGAR OS DADOS
+@st.cache_data
+def carregar_dados():
+    df = pd.read_csv('dados_tratados.csv')
+    return df
 
-if __name__ == '__main__':
-    # O Render exige que o app use a porta definida por eles na variável de ambiente PORT
-    porta = int(os.environ.get("PORT", 8080))
-    app.run(debug=True, host='0.0.0.0', port=porta)
+try:
+    df = carregar_dados()
+
+    # Tratamento dos rótulos de diagnóstico
+    if 'diagnosis' in df.columns:
+        if df['diagnosis'].dtype == 'object':
+            df['diagnosis'] = df['diagnosis'].map({'B': 'Benigno', 'M': 'Maligno', 'Benigno': 'Benigno', 'Maligno': 'Maligno'})
+        else:
+            df['diagnosis'] = df['diagnosis'].map({0: 'Benigno', 1: 'Maligno'})
+
+    # TÍTULO PRINCIPAL DO DASHBOARD
+    st.title("📊 Dashboard - Análise Exploratória de Dados")
+    st.write("Visão geral e distribuição das características clínicas da base de dados.")
+    st.markdown("---")
+
+    # 5. ORGANIZAÇÃO DOS TEMPLATES: OS 5 QUADRADOS EM LINHA HORIZONTAL
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        total_benigno = len(df[df['diagnosis'] == 'Benigno'])
+        st.markdown(f"<div class='card-metrica'><div class='card-titulo'>Benigno</div><div class='card-valor' style='color: #2b5c8f;'>{total_benigno}</div></div>", unsafe_allow_html=True)
+        
+    with col2:
+        total_maligno = len(df[df['diagnosis'] == 'Maligno'])
+        st.markdown(f"<div class='card-metrica'><div class='card-titulo'>Maligno</div><div class='card-valor'>{total_maligno}</div></div>", unsafe_allow_html=True)
+        
+    with col3:
+        st.markdown(f"<div class='card-metrica'><div class='card-titulo'>Qtd. Total</div><div class='card-valor' style='color: #ffffff;'>{len(df)}</div></div>", unsafe_allow_html=True)
+        
+    with col4:
+        area_med_mal = df[df['diagnosis'] == 'Maligno']['area_mean'].mean()
+        st.markdown(f"<div class='card-metrica'><div class='card-titulo'>Área Médica M.</div><div class='card-valor' style='color: #00bfa5;'>{area_med_mal:.1f}</div></div>", unsafe_allow_html=True)
+        
+    with col5:
+        textura_med = df['texture_mean'].mean()
+        st.markdown(f"<div class='card-metrica'><div class='card-titulo'>T. Média Tumor</div><div class='card-valor' style='color: #ffb300;'>{textura_med:.1f}</div></div>", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 6. GRÁFICOS LADO A LADO (Conforme o esboço)
+    col_g1, col_g2 = st.columns(2)
+
+    # Definindo um tema escuro para os gráficos do Plotly
+    template_grafico = "plotly_dark"
+
+    with col_g1:
+        st.subheader("Gráfico Pizza: Proporção")
+        fig_pizza = px.pie(
+            df, 
+            names='diagnosis', 
+            color='diagnosis', 
+            color_discrete_map={'Benigno': '#2b5c8f', 'Maligno': '#e91e63'},
+            hole=0.4,
+            template=template_grafico
+        )
+        fig_pizza.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig_pizza, use_container_width=True)
+
+    with col_g2:
+        st.subheader("Box Plot: Distribuição de Área")
+        fig_box = px.box(
+            df, 
+            x='diagnosis', 
+            y='area_mean', 
+            color='diagnosis',
+            color_discrete_map={'Benigno': '#2b5c8f', 'Maligno': '#e91e63'},
+            labels={'diagnosis': 'Diagnóstico', 'area_mean': 'Área Média (mm²)'},
+            template=template_grafico
+        )
+        fig_box.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig_box, use_container_width=True)
+
+    st.markdown("---")
+
+    # 7. BOTÃO COMPLEMENTAR DE REDIRECIONAMENTO
+    st.markdown("""
+        <div style='text-align: center; margin-top: 20px;'>
+            <p style='color: #a0a0b8;'>Deseja realizar uma nova análise preditiva baseada neste comportamento clínico?</p>
+            <a href="/1_Predicao" target="_self" style='background-color: #e91e63; color: white !important; padding: 12px 35px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; box-shadow: 0 4px 15px rgba(233,30,99,0.4);'>Acessar Predição ➔</a>
+        </div>
+    """, unsafe_allow_html=True)
+
+except Exception as e:
+    st.error(f"Erro ao construir o ambiente visual: {e}")
