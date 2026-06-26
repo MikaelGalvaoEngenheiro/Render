@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. ESTILIZAÇÃO CUSTOMIZADA (Correção de sobreposição e alinhamento ao topo)
+# 2. ESTILIZAÇÃO CUSTOMIZADA (Remoção total de textos fantasmas e ajuste de topo absoluto)
 st.markdown("""
     <style>
     /* Fundo Principal em Branco */
@@ -17,49 +17,58 @@ st.markdown("""
         background-color: #ffffff;
         color: #222222;
     }
-    
+
     /* --- CONFIGURAÇÃO DO MENU LATERAL --- */
-    
+
     /* Fundo Preto/Escuro da Barra Lateral */
     [data-testid="stSidebar"] {
         background-color: #121214 !important;
         border-right: none;
     }
-    
-    /* REMOVE ELEMENTOS INVISÍVEIS DO STREAMLIT QUE CAUSAM SOBREPOSIÇÃO */
-    [data-testid="stSidebar"] .stElementContainer:has(label[data-testid="stWidgetLabel"]-visible) {
+
+    /* FORÇA O SUMIÇO DE QUALQUER ELEMENTO DE NAVEGAÇÃO OU WIDGET NATIVO ACIMA DO BLOCO AZUL */
+    [data-testid="stSidebarNav"] {
         display: none !important;
     }
-    /* Esconde elementos vazios gerados pelo radio oculto */
+    [data-testid="stSidebar"] section[data-testid="stSidebarUserContent"] > div:first-child:empty {
+        display: none !important;
+    }
+    /* Remove labels e caixas que tentam renderizar texto de widgets */
+    [data-testid="stSidebar"] div[data-testid="stWidgetLabel"] {
+        display: none !important;
+    }
     div[data-testid="stRadio"] > label {
         display: none !important;
     }
-    
-    /* Zera os paddings nativos do container interno para o menu colar no topo */
+
+    /* Zera COMPLETAMENTE as margens e paddings nativos do topo do Streamlit */
     [data-testid="stSidebarContent"] {
-        padding-top: 0rem !important;
-    }
-    [data-testid="stSidebarUserContent"] {
         padding-top: 0rem !important;
         padding-left: 0rem !important;
         padding-right: 0rem !important;
     }
-    
-    /* Força o texto das opções nativas a ficarem brancos */
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
-        color: #ffffff !important;
+    .st-emotion-cache-1c7ee8x {
+        padding-top: 0rem !important;
     }
-    
-    /* Bloco do Topo Azul (Sem margem negativa quebrada, colado perfeitamente) */
+
+    /* Container que envolve o conteúdo feito pelo usuário */
+    [data-testid="stSidebarUserContent"] {
+        padding-top: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    /* Bloco do Topo Azul (Alinhamento Perfeito e Colado ao Teto) */
     .menu-header-azul {
         background-color: #3b42f2;
-        padding: 40px 20px;
+        padding: 45px 20px;
         text-align: center;
         margin-top: 0rem !important;
         margin-bottom: 25px;
         width: 100%;
     }
-    
+
     /* Cruz Médica Branca */
     .logo-cross {
         position: relative;
@@ -79,26 +88,32 @@ st.markdown("""
     .logo-cross::after {
         left: 13px; top: 0; width: 10px; height: 36px;
     }
-    
-    /* Título "MENU" em Branco */
+
+    /* Título "CARDÁPIO" em Branco */
     .menu-titulo {
         color: #ffffff !important;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: bold;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        margin: 20px 15px 15px 15px;
+        letter-spacing: 1.5px;
+        margin: 20px 20px 15px 20px;
         font-family: sans-serif;
         border-bottom: 1px solid #2a2a30;
-        padding-bottom: 8px;
+        padding-bottom: 10px;
     }
-    
-    /* Ajuste de espaçamento para as opções do Radio ficarem bonitas na barra */
+
+    /* Força o texto das opções do rádio (Painel e Predição) a ficarem brancos */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
+        color: #ffffff !important;
+        font-size: 15px !important;
+    }
+
+    /* Margem para alinhar os botões redondos de seleção */
     [data-testid="stSidebarUserContent"] div[data-testid="stRadio"] {
-        padding-left: 15px;
-        padding-right: 15px;
+        padding-left: 20px;
+        padding-right: 20px;
     }
-    
+
     /* ----------------------------------------------- */
 
     /* Estilização dos blocos/quadrados superiores */
@@ -128,22 +143,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# 3. MENU LATERAL PERSONALIZADO (Ordem limpa e correta)
-# 1º O Topo Azul colado acima de tudo
+# 3. MENU LATERAL PERSONALIZADO (Construção Limpa a partir do Teto)
+# Bloco Azul no topo absoluto
 st.sidebar.markdown("""
     <div class='menu-header-azul'>
         <div class='logo-cross'></div>
     </div>
 """, unsafe_allow_html=True)
 
-# 2º O Título do Menu
-st.sidebar.markdown("<div class='menu-titulo'>MENU</div>",
-                    unsafe_allow_html=True)
+# Título da Seção exatamente igual à imagem
+st.sidebar.markdown(
+    "<div class='menu-titulo'>CARDÁPIO</div>", unsafe_allow_html=True)
 
-# 3º As opções selecionáveis de forma limpa
+# Opções de rádio com os exatos emojis e nomes da imagem
 opcao = st.sidebar.radio(
-    label="Menu de Navegação",
-    options=["📊 Dashboard", "🤖 Predição"],
+    label="Navegação do Aplicativo",
+    options=["📊 Painel", "🧠 Predição"],
     label_visibility="collapsed"
 )
 
@@ -165,8 +180,8 @@ try:
         else:
             df['diagnosis'] = df['diagnosis'].map({0: 'Benigno', 1: 'Maligno'})
 
-    # Alterna o conteúdo principal dependendo da opção clicada no menu lateral
-    if "Dashboard" in opcao:
+    # Alterna o conteúdo baseado no rádio do menu lateral
+    if "Painel" in opcao:
         st.title("📊 Dashboard - Análise Exploratória de Dados")
         st.write(
             "Visão geral e distribuição das características clínicas da base de dados.")
@@ -191,42 +206,4 @@ try:
 
         with col4:
             area_med_mal = df[df['diagnosis'] == 'Maligno']['area_mean'].mean()
-            st.markdown(
-                f"<div class='card-metrica'><div class='card-titulo'>Área Médica M.</div><div class='card-valor' style='color: #00897b;'>{area_med_mal:.1f}</div></div>", unsafe_allow_html=True)
-
-        with col5:
-            textura_med = df['texture_mean'].mean()
-            st.markdown(
-                f"<div class='card-metrica'><div class='card-titulo'>T. Média Tumor</div><div class='card-valor' style='color: #f57c00;'>{textura_med:.1f}</div></div>", unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # Gráficos
-        col_g1, col_g2 = st.columns(2)
-        template_grafico = "plotly_white"
-
-        with col_g1:
-            st.subheader("Gráfico Pizza: Proporção")
-            fig_pizza = px.pie(df, names='diagnosis', color='diagnosis', color_discrete_map={
-                               'Benigno': '#1f77b4', 'Maligno': '#e91e63'}, hole=0.4, template=template_grafico)
-            fig_pizza.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_pizza, use_container_width=True)
-
-        with col_g2:
-            st.subheader("Box Plot: Distribuição de Área")
-            fig_box = px.box(df, x='diagnosis', y='area_mean', color='diagnosis', color_discrete_map={'Benigno': '#1f77b4', 'Maligno': '#e91e63'}, labels={
-                             'diagnosis': 'Diagnóstico', 'area_mean': 'Área Média (mm²)'}, template=template_grafico)
-            fig_box.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_box, use_container_width=True)
-
-    elif "Predição" in opcao:
-        st.title("🤖 Análise Preditiva com Inteligência Artificial")
-        st.write(
-            "Insira os parâmetros clínicos para calcular a probabilidade de diagnóstico.")
-        st.markdown("---")
-        st.info("Área reservada para os inputs e outputs do seu modelo preditivo.")
-
-except Exception as e:
-    st.error(f"Erro ao construir o ambiente visual: {e}")
+            st.markdown(f"<div class='card-metrica'><div class='card-titulo'>Área Médica
